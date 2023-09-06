@@ -1,0 +1,58 @@
+version: '3.4'
+
+services:
+  rickandmortyapi:
+    image: bernk4stel/rickandmortyapi
+    container_name: ram_container
+    networks:
+      - app
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+  postgres_db:
+    image: postgres
+    container_name: db_container
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - 5433:5432
+    networks:
+      - app
+    volumes:
+     - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      
+  reverse_proxy:
+    image: nginx
+    container_name: reverseproxy_container
+    restart: always
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./certs:/etc/nginx/certs
+    networks:
+      - app
+    depends_on:
+      - rickandmortyapi
+
+volumes: 
+  postgres_data: 
+networks:
+  app:
+    driver: bridge 
